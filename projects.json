@@ -1,14 +1,8 @@
 [
   {
     "id": "p1",
-    "name": "Calculator",
-    "link": "https://yourusername.github.io/calculator",
-    "image": "images/calc.png"
+    "name": "Resume",
+    "link": "https://my-project512.github.io/RESUME-project/",
+    "image": "resume.png"
   },
-  {
-    "id": "p2",
-    "name": "Portfolio",
-    "link": "https://yourusername.github.io/portfolio",
-    "image": "images/portfolio.png"
-  }
 ]
