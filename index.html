@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Project Gallery — Public</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Arial}
+    body{margin:0;background:linear-gradient(180deg,#071022 0%,#071b2a 100%);color:#e6eef6;min-height:100vh}
+    header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:transparent}
+    h1{margin:0;font-size:20px;letter-spacing:0.2px}
+    .btn{background:var(--accent);color:#052023;padding:8px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+    .ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+
+    .container{max-width:1100px;margin:20px auto;padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+    .card{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.4);border:1px solid var(--glass)}
+    .card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#333}
+    .card .title{font-weight:700;margin:8px 0 4px}
+    .card a{color:var(--accent);text-decoration:none;font-weight:600}
+
+    /* Admin panel */
+    .Admin-panel{display:none;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.03);padding:14px;border-radius:12px;margin-top:16px}
+    .form-row{display:flex;gap:8px;margin-bottom:8px}
+    .form-row input{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .small{width:120px}
+    .project-list{margin-top:12px}
+    .project-item{display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);margin-bottom:8px}
+    .project-item img{width:64px;height:44px;object-fit:cover;border-radius:6px;background:#333}
+    .actions{margin-left:auto;display:flex;gap:6px}
+    .muted{color:var(--muted);font-size:13px}
+
+    /* login modal */
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(rgba(2,6,23,0.6),rgba(2,6,23,0.6));z-index:30}
+    .modal-card{width:360px;background:#061022;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.04)}
+    .footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+
+    .note{font-size:13px;color:var(--muted);margin-top:10px}
+    @media (max-width:480px){.form-row{flex-direction:column}.small{width:100%}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Project Gallery</h1>
+    <div>
+      <button id="loginBtn" class="btn">Login Owner</button>
+      <button id="logoutBtn" class="ghost" style="display:none;margin-left:8px">Logout</button>
+    </div>
+  </header>
+  <main class="container">
+    <section id="publicView">
+      <p class="note">Projects saved in <code>localStorage</code></p>
+      <div id="gallery" class="grid" style="margin-top:12px"></div>
+    </section>
+
+    <section id="AdminSection" class="Admin-panel">
+      <h3>Manage Projects</h3>
+      <div style="margin-top:8px" class="form-row">
+        <label>Upload Image:</label>
+        <input type="file" id="projectImageUpload" accept="image/*">
+        <input id="pName" placeholder="Project name" />
+        <input id="pLink" placeholder="Project URL (https://...)" />
+      </div>
+      <div class="form-row">
+        <button id="addBtn" class="btn small">Add Project</button>
+      </div>
+      <div class="form-row">
+        <button id="clearAll" class="ghost small">Clear All Projects</button>
+        <button id="exportBtn" class="ghost small">Export JSON</button>
+        <button id="importBtn" class="ghost small">Import JSON</button>
+      </div>
+
+      <div class="project-list" id="projectList"></div>
+    </section>
+  </main>
+
+  <!-- login modal -->
+  <div id="modal" class="modal" style="display:none">
+    <div class="modal-card">
+      <h3>Admin Login</h3>
+      <div style="margin-top:8px">
+        <input id="passInput" placeholder="Enter password" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+      </div>
+      <div class="footer">
+        <button id="cancelLogin" class="ghost">Cancel</button>
+        <button id="doLogin" class="btn">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LS_KEY = 'projects_gallery_v1';
+    const LS_PASS = 'projects_gallery_pass_v1';
+
+    function $(sel){return document.querySelector(sel)}
+    function uid(){return 'id_'+Math.random().toString(36).slice(2,9)}
+
+    function loadProjects(){
+      try{
+        const s = localStorage.getItem(LS_KEY);
+        if(!s){ return []; }
+        return JSON.parse(s)||[];
+      }catch(e){console.error(e); return []}
+    }
+    function saveProjects(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr)) }
+
+    function getPass(){ return localStorage.getItem(LS_PASS) || 'Admin' }
+    function setPass(p){ localStorage.setItem(LS_PASS,p) }
+
+    function renderGallery(){
+      const gallery = $('#gallery'); gallery.innerHTML='';
+      const arr = loadProjects();
+      if(arr.length===0){ gallery.innerHTML='<p class="muted">No projects yet. Admin can add projects after login.</p>'; return }
+      arr.forEach(p=>{
+        const c = document.createElement('div'); c.className='card';
+        c.innerHTML = `
+          <img src="${p.image||''}" alt="${p.name}" />
+          <div class="title">${escapeHtml(p.name)}</div>
+          <div class="muted"><a href="${p.link||'#'}" target="_blank">Open project</a></div>
+        `;
+        gallery.appendChild(c);
+      })
+    }
+
+    function renderAdmin(){
+      const list = $('#projectList'); list.innerHTML='';
+      const arr = loadProjects();
+      if(arr.length===0){ list.innerHTML='<p class="muted">No projects yet.</p>'; return }
+      arr.forEach((p,idx)=>{
+        const el = document.createElement('div'); el.className='project-item';
+        el.innerHTML = `
+          <img src="${p.image||''}" />
+          <div>
+            <div style="font-weight:700">${escapeHtml(p.name)}</div>
+            <div class="muted" style="font-size:12px">${escapeHtml(p.link||'—')}</div>
+          </div>
+          <div class="actions">
+            <button class="ghost" data-act="del" data-id="${p.id}">Delete</button>
+          </div>
+        `;
+        list.appendChild(el);
+      })
+    }
+
+    function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])) }
+
+    // Add project with image upload
+    $('#addBtn').addEventListener('click',()=>{
+      const name = $('#pName').value.trim(); 
+      const link = $('#pLink').value.trim(); 
+      const file = $('#projectImageUpload').files[0];
+
+      if(!name){ alert('Please enter project name'); return }
+
+      const arr = loadProjects();
+
+      if(file){
+        const reader = new FileReader();
+        reader.onload = function(e){
+          arr.unshift({id:uid(),name,link,image:e.target.result});
+          saveProjects(arr); 
+          $('#pName').value=''; $('#pLink').value=''; $('#projectImageUpload').value='';
+          renderAdmin(); renderGallery();
+        }
+        reader.readAsDataURL(file);
+      }else{
+        arr.unshift({id:uid(),name,link,image:''});
+        saveProjects(arr); 
+        $('#pName').value=''; $('#pLink').value=''; $('#projectImageUpload').value='';
+        renderAdmin(); renderGallery();
+      }
+    })
+
+    $('#projectList').addEventListener('click',e=>{
+      const t = e.target; const act = t.dataset.act; const id = t.dataset.id; if(!act) return;
+      let arr = loadProjects(); const idx = arr.findIndex(x=>x.id===id); if(idx===-1) return;
+      if(act==='del'){
+        if(confirm('Delete this project?')){ arr.splice(idx,1); saveProjects(arr); renderAdmin(); renderGallery(); }
+      }
+    })
+
+    $('#clearAll').addEventListener('click',()=>{ if(confirm('Clear all projects?')){ localStorage.removeItem(LS_KEY); renderAdmin(); renderGallery(); }});
+    $('#exportBtn').addEventListener('click',()=>{ const data = localStorage.getItem(LS_KEY)||'[]'; prompt('Copy JSON export (Ctrl+C)', data); });
+    $('#importBtn').addEventListener('click',()=>{ const s = prompt('Paste projects JSON to import'); if(!s) return; try{ const arr = JSON.parse(s); if(!Array.isArray(arr)) throw 0; saveProjects(arr); renderAdmin(); renderGallery(); alert('Imported ok'); }catch(e){ alert('Invalid JSON') } })
+
+    // Login modal
+    $('#loginBtn').addEventListener('click',()=>{ $('#modal').style.display='flex'; $('#passInput').value=''; $('#passInput').focus(); })
+    $('#cancelLogin').addEventListener('click',()=>{ $('#modal').style.display='none'; })
+    $('#doLogin').addEventListener('click',()=>{ const pass = $('#passInput').value; if(pass===getPass()){ enterAdmin(); $('#modal').style.display='none'; } else{ alert('Wrong password') } })
+
+    function enterAdmin(){ $('#AdminSection').style.display='block'; $('#logoutBtn').style.display='inline-block'; $('#loginBtn').style.display='none'; renderAdmin(); }
+    function leaveadmin(){ $('#AdminSection').style.display='none'; $('#logoutBtn').style.display='none'; $('#loginBtn').style.display='inline-block'; }
+    $('#logoutBtn').addEventListener('click',()=>{ leaveadmin(); })
+
+    if(!localStorage.getItem(LS_PASS)) setPass('Admin');
+    renderGallery();
+
+    // disable inspect shortcuts
+    document.addEventListener("keydown", function(event) {
+      if (event.ctrlKey && (event.key === "u" || event.key === "U")) { event.preventDefault(); }
+      if (event.ctrlKey && event.shiftKey && (event.key === "I" || event.key==="J")) { event.preventDefault(); }
+      if (event.key === "F12") { event.preventDefault(); }
+    });
+  </script>
+</body>
+</html>
