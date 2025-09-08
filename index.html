@@ -202,6 +202,31 @@
       if (event.ctrlKey && event.shiftKey && (event.key === "I" || event.key==="J")) { event.preventDefault(); }
       if (event.key === "F12") { event.preventDefault(); }
     });
+    async function loadProjects() {
+  const res = await fetch("projects.json");
+  return await res.json();
+}
+
+async function renderGallery() {
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML = "";
+  const arr = await loadProjects();
+  if (arr.length === 0) {
+    gallery.innerHTML = '<p class="muted">No projects yet.</p>';
+    return;
+  }
+  arr.forEach(p => {
+    const c = document.createElement("div");
+    c.className = "card";
+    c.innerHTML = `
+      <img src="${p.image}" alt="${p.name}" />
+      <div class="title">${p.name}</div>
+      <div class="muted"><a href="${p.link}" target="_blank">Open project</a></div>
+    `;
+    gallery.appendChild(c);
+  });
+}
+renderGallery();
   </script>
 </body>
 </html>
